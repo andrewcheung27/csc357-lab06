@@ -1,3 +1,6 @@
+/* count down program */
+
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,26 +9,19 @@
 #include <unistd.h>
 
 
-static int setTimers(struct itimerval *tick, struct itimerval *tock) {
-    /* tick every second, starting immediately */
-    tick->it_value.tv_sec = 0;
-    tick->it_value.tv_usec = 5000000;
-    tick->it_interval.tv_sec = 1;
-    tick->it_interval.tv_usec = 0;
+/* timer that goes off every half-second */
+static int setTimer(struct itimerval *timer) {
+    timer->it_value.tv_sec = 0;
+    timer->it_value.tv_usec = 500000;
+    timer->it_interval.tv_sec = 0;
+    timer->it_interval.tv_usec = 500000;
 
-    /* tock every second, starting at a half-second offset */
-    tock->it_value.tv_sec = 0;
-    tock->it_value.tv_usec = 1;
-    tock->it_interval.tv_sec = 1;
-    tock->it_interval.tv_usec = 0;
-
-    setitimer(ITIMER_REAL, tick, 0);
-    setitimer(ITIMER_REAL, tock, 0);
-
+    setitimer(ITIMER_REAL, timer, 0);
     return 0;
 }
 
 
+/* signal handler that prints tick tock */
 void handler(int signum, siginfo_t *siginfo, void *ucontext) {
     static int n = 1;
 
@@ -42,10 +38,9 @@ void handler(int signum, siginfo_t *siginfo, void *ucontext) {
 
 int main(int argc, char *argv[]) {
     long seconds;
+    int_fast64_t doubledSeconds;
     char *c;
-
-    struct itimerval tickTimer;
-    struct itimerval tockTimer;
+    struct itimerval timer;
     struct sigaction sa;
 
 
@@ -76,11 +71,13 @@ int main(int argc, char *argv[]) {
     sa.sa_sigaction = handler;
     sigaction(SIGALRM, &sa, 0);
 
-    setTimers(&tickTimer, &tockTimer);
+    /* set timer to send SIGALRM every half-second */
+    setTimer(&timer);
 
-    /* possible overflow? */
-    seconds *= 2;
-    while (seconds--) {
+    /* seconds doubled because we have two signals per second */
+    doubledSeconds = seconds;
+    doubledSeconds *= 2;
+    while (doubledSeconds--) {
         pause();
     }
 
