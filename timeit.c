@@ -9,6 +9,35 @@
 #include <unistd.h>
 
 
+long getSeconds(int argc, char *argv[]) {
+    long seconds;
+    char *c;
+
+    /* not enough args */
+    if (argc < 2) {
+        fprintf(stderr,
+                "Missing arg.\nUsage: timeit seconds\n");
+        exit(EXIT_FAILURE);
+    }
+    /* too many args */
+    if (argc > 2) {
+        fprintf(stderr,
+                "Too many args.\nUsage: timeit seconds\n");
+        exit(EXIT_FAILURE);
+    }
+    c = NULL;
+    seconds = strtol(argv[1], &c, 0);
+    /* needs an int */
+    if (*c || seconds < 0) {
+        fprintf(stderr,
+                "Argument must be an integer.\nUsage: timeit seconds\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return seconds;
+}
+
+
 /* timer that goes off every half-second */
 static int setTimer(struct itimerval *timer) {
     timer->it_value.tv_sec = 0;
@@ -39,32 +68,18 @@ void handler(int signum, siginfo_t *siginfo, void *ucontext) {
 int main(int argc, char *argv[]) {
     long seconds;
     int_fast64_t doubledSeconds;
-    char *c;
+    sigset_t set;
+    sigset_t oldset;
     struct itimerval timer;
     struct sigaction sa;
 
+    /* block interrupts */
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigprocmask(SIG_BLOCK, &set, &oldset);
 
-    /* not enough args */
-    if (argc < 2) {
-        fprintf(stderr,
-                "Missing arg.\nUsage: timeit seconds\n");
-        exit(EXIT_FAILURE);
-    }
-    /* too many args */
-    if (argc > 2) {
-        fprintf(stderr,
-                "Too many args.\nUsage: timeit seconds\n");
-        exit(EXIT_FAILURE);
-    }
-    c = NULL;
-    seconds = strtol(argv[1], &c, 0);
-    /* needs an int */
-    if (*c || seconds < 0) {
-        fprintf(stderr,
-                "Argument must be an integer.\nUsage: timeit seconds\n");
-        exit(EXIT_FAILURE);
-    }
-
+    /* read number of seconds from command line args */
+    seconds = getSeconds(argc, argv);
 
     /* register handler for SIGALRM */
     memset(&sa, 0, sizeof(sa));
@@ -82,6 +97,8 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Time's up!\n");
+    sigprocmask(SIG_UNBLOCK, &set, 0);
+    sigprocmask(SIG_BLOCK, &oldset, 0);
     return 0;
 }
 
